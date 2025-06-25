@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, ExternalLink, Package, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Package, Users, Upload, X } from 'lucide-react';
 import { sampleProducts } from '@/data/products';
 import { Product, Order } from '@/types';
 
@@ -22,6 +21,7 @@ const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   // Redirect if not admin
   useEffect(() => {
@@ -51,15 +51,45 @@ const AdminDashboard = () => {
     return <div>Chargement...</div>;
   }
 
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setUploadedImages(prev => [...prev, event.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  // Remove uploaded image
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (uploadedImages.length === 0) {
+      toast({ 
+        title: "Images requises", 
+        description: "Veuillez ajouter au moins une image pour le produit",
+        variant: "destructive"
+      });
+      return;
+    }
     
     const newProduct: Product = {
       id: editingProduct?.id || Date.now().toString(),
       title: productForm.title,
       description: productForm.description,
       price: parseFloat(productForm.price),
-      images: ['https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=800&fit=crop'], // Placeholder
+      images: uploadedImages.length > 0 ? uploadedImages : ['https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=800&fit=crop'],
       sizes: productForm.sizes,
       colors: productForm.colors,
       stock: parseInt(productForm.stock),
@@ -80,6 +110,7 @@ const AdminDashboard = () => {
       title: '', description: '', price: '', sizes: ['S', 'M', 'L', 'XL'],
       colors: ['Noir', 'Blanc', 'Gris'], stock: '', category: '', featured: false
     });
+    setUploadedImages([]);
     setShowProductForm(false);
     setEditingProduct(null);
   };
@@ -96,6 +127,7 @@ const AdminDashboard = () => {
       category: product.category,
       featured: product.featured
     });
+    setUploadedImages(product.images);
     setShowProductForm(true);
   };
 
@@ -202,7 +234,7 @@ const AdminDashboard = () => {
             </Button>
           </div>
 
-          {/* Product Form */}
+          {/* Product Form with Image Upload */}
           {showProductForm && (
             <Card>
               <CardHeader>
@@ -266,6 +298,59 @@ const AdminDashboard = () => {
                     </div>
                   </div>
 
+                  {/* Image Upload Section */}
+                  <div className="space-y-4">
+                    <Label>Images du produit *</Label>
+                    
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                      <div className="text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="mt-4">
+                          <Label htmlFor="images" className="cursor-pointer">
+                            <span className="mt-2 block text-sm font-medium text-gray-900">
+                              Cliquez pour ajouter des images
+                            </span>
+                            <span className="mt-1 block text-sm text-gray-600">
+                              PNG, JPG, JPEG jusqu'à 10MB
+                            </span>
+                          </Label>
+                          <Input
+                            id="images"
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preview uploaded images */}
+                    {uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {uploadedImages.map((image, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={image}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                              onClick={() => removeImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -286,6 +371,7 @@ const AdminDashboard = () => {
                       onClick={() => {
                         setShowProductForm(false);
                         setEditingProduct(null);
+                        setUploadedImages([]);
                         setProductForm({
                           title: '', description: '', price: '', sizes: ['S', 'M', 'L', 'XL'],
                           colors: ['Noir', 'Blanc', 'Gris'], stock: '', category: '', featured: false
